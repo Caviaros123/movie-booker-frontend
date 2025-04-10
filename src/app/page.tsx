@@ -1,103 +1,110 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import useAxiosAuth from "./lib/hooks/useAxiosAuth";
+import { getSupabaseFrontendClient } from "./lib/supabase/client";
+
+export default function HomePage() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const supabase = getSupabaseFrontendClient();
+  const axiosAuth = useAxiosAuth();
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const getProtectedData = async () => {
+    try {
+      const response = await axiosAuth.get("/protected");
+      console.log("Protected data:", response.data);
+    } catch (error) {
+      console.error("Error fetching protected data:", error);
+    }
+  };
+
+  const [movies, setMovies] = useState<any[]>([]);
+
+  const fetchMovies = async () => {
+    try {
+      const response = await axiosAuth.get("/movies");
+      console.log("Movies:", response.data);
+      setMovies(response.data);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des films:", error);
+    }
+  };
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      console.log("Session:", data);
+
+      if (!data.session) {
+        router.push("/login");
+      } else {
+        setUser(data.session.user);
+        getProtectedData();
+        fetchMovies();
+      }
+    };
+    checkSession();
+  }, []);
+
+  const handleSearch = () => {
+    const searchValue = searchRef.current?.value;
+    console.log("Search value:", searchValue);
+    const filteredMovies = movies.filter((movie) =>
+      movie.title.toLowerCase().includes(searchValue?.toLowerCase() || "")
+    );
+    if (filteredMovies) setMovies(filteredMovies);
+    else if (searchValue?.length === 0) setMovies(movies);
+    else setMovies([]);
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <div className="flex flex-col items-center justify-center h-full overflow-y-auto">
+      <h1 className="text-2xl font-bold">Movie Booker</h1>
+      <p className="text-sm text-gray-500">
+        Bienvenue sur movie booker, votre site de réservation de cinéma.
+      </p>
+      <div className="w-full h-1 bg-gray-200 my-4"></div>
+      <div className="flex flex-col gap-2">
+        <input
+          ref={searchRef}
+          type="text"
+          placeholder="Search"
+          className="w-full p-2 rounded-md border border-gray-300"
+          onChange={handleSearch}
         />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      <div className="flex flex-col gap-2">
+        <h2 className="text-lg font-bold">Films</h2>
+        <div className="grid grid-cols-4 gap-4">
+          {movies.length > 0 ? (
+            <>
+              {movies.map((movie) => (
+                <div key={movie.id} className="w-40 h-60 bg-gray-200">
+                  <img
+                    src={"https://image.tmdb.org/t/p/w500" + movie.poster_path}
+                    alt={movie.title}
+                  />
+                </div>
+                // pagination
+              ))}
+              <div className="flex justify-between w-full gap-2">
+                <button className="bg-blue-500 text-white p-2 rounded-md">
+                  Précédent
+                </button>
+                <button className="bg-blue-500 text-white p-2 rounded-md">
+                  Suivant
+                </button>
+              </div>
+            </>
+          ) : (
+            <div>No films available</div>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
   );
 }
